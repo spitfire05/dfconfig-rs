@@ -2,6 +2,9 @@
 name = "dfconfig"
 version = "0.1.0"
 authors = ["Michal Borejszo <michael.borejszo@gmail.com>"]
+repository = "https://github.com/spitfire05/dfconfig-rs"
+description = "A config/init file parser for Dwarf Fortress"
+license-file = "LICENSE"
 edition = "2018"
 exclude = ["test-data/*"]
 
