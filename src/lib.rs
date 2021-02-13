@@ -12,14 +12,14 @@
 //! # use std::io;
 //! use std::fs::{read_to_string, write};
 //! use dfconfig::Config;
-//! 
+//!
 //! // Parse existing config
 //! let path = r"/path/to/df/data/init/init.txt";
 //! let mut conf = Config::read_str(read_to_string(path).unwrap());
-//! 
+//!
 //! // Read some value
 //! let sound = conf.get("SOUND");
-//! 
+//!
 //! // Modify and save the config
 //! conf.set("VOLUME", "128");
 //! write(path, conf.print())?;
@@ -86,7 +86,7 @@ impl Config {
                     None
                 }
             }
-            _ => None
+            _ => None,
         })
     }
 
@@ -109,10 +109,13 @@ impl Config {
 
     /// Returns number of configuration entries present in this `Config`
     pub fn len(&self) -> usize {
-        self.lines.iter().filter(|&x| match x {
-            Line::Entry(_, _) => true,
-            _ => false
-        }).count()
+        self.lines
+            .iter()
+            .filter(|&x| match x {
+                Line::Entry(_, _) => true,
+                _ => false,
+            })
+            .count()
     }
 
     /// Returns the string representing the configuration in its current state (aka what you'd write to the file usually).
