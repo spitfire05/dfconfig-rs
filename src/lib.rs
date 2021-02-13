@@ -26,19 +26,43 @@
 //! # Ok::<(), io::Error>(())
 //! ```
 
+#[derive(Clone, Debug)]
+enum Line {
+    Blank,
+    Comment(String),
+    Entry(Entry),
+}
+
+#[derive(Clone, Debug)]
+struct Entry {
+    key: String,
+    value: String,
+}
+
+impl Entry {
+    pub fn new(key: String, value: String) -> Self {
+        Self { key, value }
+    }
+
+    pub fn get_value(&self) -> &str {
+        &self.value
+    }
+
+    pub fn get_key(&self) -> &str {
+        &self.key
+    }
+
+    pub fn set_value(&mut self, value: String) {
+        self.value = value;
+    }
+}
+
 /// The main struct of this crate. Represents DF config file, while also providing functions to parse and manipulate the data.
 /// See crate doc for example usage.
 #[doc(inline)]
 #[derive(Clone, Debug)]
 pub struct Config {
     lines: Vec<Line>,
-}
-
-#[derive(Clone, Debug)]
-enum Line {
-    Blank,
-    Comment(String),
-    Entry(String, String),
 }
 
 impl Config {
@@ -61,10 +85,10 @@ impl Config {
             if lt.starts_with('[') && lt.contains(':') && lt.ends_with(']') {
                 if let Some((separator_position, _)) = lt.char_indices().find(|&(_, b)| b == ':') {
                     let (key, value) = lt.split_at(separator_position);
-                    lines.push(Line::Entry(
+                    lines.push(Line::Entry(Entry::new(
                         key[1..].to_string(),
                         value[1..value.len() - 1].to_string(),
-                    ));
+                    )));
                     continue;
                 }
             }
@@ -77,11 +101,11 @@ impl Config {
 
     /// Tries to retrieve the value for `key`.
     /// If the key is defined more than once, returns the value of the last occurence.
-    pub fn get<T: AsRef<str>>(&self, key: T) -> Option<String> {
+    pub fn get<T: AsRef<str>>(&self, key: T) -> Option<&str> {
         self.lines.iter().rev().find_map(|x| match x {
-            Line::Entry(e_key, value) => {
-                if e_key == key.as_ref() {
-                    Some(value.clone())
+            Line::Entry(entry) => {
+                if entry.get_key() == key.as_ref() {
+                    Some(entry.get_value().clone())
                 } else {
                     None
                 }
@@ -96,9 +120,9 @@ impl Config {
         let value = value.into();
         let mut n = 0;
         for e in self.lines.iter_mut() {
-            if let Line::Entry(k, _) = e {
-                if k == key {
-                    *e = Line::Entry(key.to_string(), value.clone());
+            if let Line::Entry(entry) = e {
+                if entry.get_key() == key {
+                    entry.set_value(value.clone());
                     n += 1;
                 }
             }
@@ -106,7 +130,7 @@ impl Config {
 
         if n == 0 {
             self.lines
-                .push(Line::Entry(key.to_string(), value));
+                .push(Line::Entry(Entry::new(key.to_string(), value)));
         }
     }
 
@@ -114,7 +138,7 @@ impl Config {
     pub fn len(&self) -> usize {
         self.lines
             .iter()
-            .filter(|&x| matches!(x, Line::Entry(_, _)))
+            .filter(|&x| matches!(x, Line::Entry(_)))
             .count()
     }
 
@@ -130,7 +154,9 @@ impl Config {
             match l {
                 Line::Blank => buff.push("".to_string()),
                 Line::Comment(x) => buff.push(x.to_string()),
-                Line::Entry(k, v) => buff.push(format!("[{}:{}]", k, v)),
+                Line::Entry(entry) => {
+                    buff.push(format!("[{}:{}]", entry.get_key(), entry.get_value()))
+                }
             }
         }
 
