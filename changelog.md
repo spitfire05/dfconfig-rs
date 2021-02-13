@@ -1,3 +1,3 @@
-dfconfig future
+dfconfig v0.1.0
 ===============
-* First version, MVP functionality
+* First version, basic functionality to read/write DF `init.txt`-like files.
