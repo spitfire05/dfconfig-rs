@@ -6,7 +6,7 @@ A config/init file parser for [Dwarf Fortress](https://www.bay12games.com/dwarve
 
 ## What?
 A pure Rust implementation of DF's config file format parser, trying to be true to game's internal one.
-See the [documentation](https://docs.rs/crate/dfconfig/) for more info.
+See the [documentation](https://docs.rs/dfconfig/) for more info.
 
 ## Why?
 I need a DF config parser/manipulator for one of my other projects.
