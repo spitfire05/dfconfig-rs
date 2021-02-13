@@ -26,6 +26,11 @@
 //! # Ok::<(), io::Error>(())
 //! ```
 
+#[macro_use]
+extern crate lazy_static;
+
+use regex::Regex;
+
 #[derive(Clone, Debug)]
 enum Line {
     Blank,
@@ -73,6 +78,9 @@ impl Config {
 
     /// Parse the config from a string.
     pub fn read_str<T: Into<String>>(input: T) -> Self {
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"^\[([\w\d]+):([\w\d:]+)\]$").unwrap();
+        }
         let mut lines = Vec::<Line>::new();
         for l in input.into().lines() {
             let lt = l.trim_end();
@@ -82,18 +90,11 @@ impl Config {
                 continue;
             }
 
-            if lt.starts_with('[') && lt.contains(':') && lt.ends_with(']') {
-                if let Some((separator_position, _)) = lt.char_indices().find(|&(_, b)| b == ':') {
-                    let (key, value) = lt.split_at(separator_position);
-                    lines.push(Line::Entry(Entry::new(
-                        key[1..].to_string(),
-                        value[1..value.len() - 1].to_string(),
-                    )));
-                    continue;
-                }
-            }
-
-            lines.push(Line::Comment(l.to_owned()));
+            let captures = RE.captures(lt);
+            match captures {
+                Some(c) => lines.push(Line::Entry(Entry::new(c.get(1).unwrap().as_str().to_owned(), c.get(2).unwrap().as_str().to_owned()))),
+                None => lines.push(Line::Comment(l.to_owned()))
+            };
         }
 
         Self { lines }
@@ -118,6 +119,10 @@ impl Config {
     pub fn set<T: AsRef<str>, U: Into<String>>(&mut self, key: T, value: U) {
         let key = key.as_ref();
         let value = value.into();
+        if key.is_empty() || !key.chars().all(|x| x.is_alphanumeric()) ||
+            value.is_empty() || !value.chars().all(|x| x.is_alphanumeric()) {
+                panic!("Both key nad value have to be non-empty alphanumeric strings!")
+            }
         let mut n = 0;
         for e in self.lines.iter_mut() {
             if let Line::Entry(entry) = e {
@@ -173,37 +178,60 @@ impl Default for Config {
 #[cfg(test)]
 mod tests {
     use std::fs::read_to_string;
+    use std::iter;
+    use rand::{Rng, thread_rng};
+    use rand::distributions::Alphanumeric;
 
     use super::*;
 
+    fn random_alphanumeric() -> String {
+        let mut rng = thread_rng();
+        iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(thread_rng().gen_range(1..50))
+        .collect()
+    }
+
     #[test]
     fn test_basic_parse() {
-        let c = Config::read_str("[A:B]");
-        assert_eq!(c.get("A").unwrap(), "B");
+        let key = random_alphanumeric();
+        let value: String = random_alphanumeric();
+        let c = Config::read_str(format!("[{}:{}]", key, value));
+        assert_eq!(c.get(key).unwrap(), value);
     }
 
     #[test]
     fn test_multi_value() {
-        let c = Config::read_str("[A:B:C]");
-        assert_eq!(c.get("A").unwrap(), "B:C");
+        let key = random_alphanumeric();
+        let value: String = format!("{}:{}", random_alphanumeric(), random_alphanumeric());
+        let c = Config::read_str(format!("[{}:{}]", key, value));
+        assert_eq!(c.get(key).unwrap(), value);
     }
 
     #[test]
     fn test_basic_set() {
+        let key = random_alphanumeric();
+        let value: String = random_alphanumeric();
         let mut c = Config::new();
-        c.set("A", "B");
-        assert_eq!(c.get("A").unwrap(), "B");
+        c.set(&key, &value);
+        assert_eq!(c.get(key).unwrap(), value);
     }
 
     #[test]
     fn test_read_modify() {
-        let mut c = Config::read_str("[A:B]");
-        assert_eq!(c.get("A").unwrap(), "B");
-        c.set("A", "C");
-        assert_eq!(c.get("A").unwrap(), "C");
-        c.set("D", "F");
-        assert_eq!(c.get("A").unwrap(), "C");
-        assert_eq!(c.get("D").unwrap(), "F");
+        let key_a = random_alphanumeric();
+        let value_b: String = random_alphanumeric();
+        let value_c: String = random_alphanumeric();
+        let key_d = random_alphanumeric();
+        let value_e: String = random_alphanumeric();
+        let mut c = Config::read_str(format!("[{}:{}]", key_a, value_b));
+        assert_eq!(c.get(&key_a).unwrap(), value_b);
+        c.set(&key_a, &value_c);
+        assert_eq!(c.get(&key_a).unwrap(), value_c);
+        c.set(&key_d, &value_e);
+        assert_eq!(c.get(&key_a).unwrap(), value_c);
+        assert_eq!(c.get(&key_d).unwrap(), value_e);
     }
 
     #[test]
@@ -215,11 +243,32 @@ mod tests {
 
     #[test]
     fn test_len() {
-        let mut c = Config::read_str("[A:B]\r\nfoo bar\r\n[C:D]");
-        assert_eq!(c.len(), 2);
-        c.set("E", "F");
-        assert_eq!(c.len(), 3);
-        c.set("E", "G");
-        assert_eq!(c.len(), 3);
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let c: String = random_alphanumeric();
+        let d: String = random_alphanumeric();
+        let e: String = random_alphanumeric();
+        let f: String = random_alphanumeric();
+        let g: String = random_alphanumeric();
+        let mut conf = Config::read_str(format!("[{}:{}]\r\nfoo bar\r\n[{}:{}]", a, b, c, d));
+        assert_eq!(conf.len(), 2);
+        conf.set(&e, &f);
+        assert_eq!(conf.len(), 3);
+        conf.set(&e, &g);
+        assert_eq!(conf.len(), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_on_empty_set() {
+        let mut c = Config::new();
+        c.set("", "");
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_on_non_alphanumeric_set() {
+        let mut c = Config::new();
+        c.set("\r", "\n");
     }
 }
