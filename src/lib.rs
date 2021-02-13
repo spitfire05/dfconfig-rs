@@ -77,12 +77,12 @@ impl Config {
     }
 
     /// Parse the config from a string.
-    pub fn read_str<T: Into<String>>(input: T) -> Self {
+    pub fn read_str<T: AsRef<str>>(input: T) -> Self {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"^\[([\w\d]+):([\w\d:]+)\]$").unwrap();
         }
         let mut lines = Vec::<Line>::new();
-        for l in input.into().lines() {
+        for l in input.as_ref().lines() {
             let lt = l.trim_end();
 
             if lt.is_empty() {
