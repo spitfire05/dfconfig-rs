@@ -105,7 +105,7 @@ impl Config {
         self.lines.iter().rev().find_map(|x| match x {
             Line::Entry(entry) => {
                 if entry.get_key() == key.as_ref() {
-                    Some(entry.get_value().clone())
+                    Some(entry.get_value())
                 } else {
                     None
                 }
