@@ -93,13 +93,10 @@ impl Config {
     /// Sets all the occurences of `key` to [`key`:`value`]
     pub fn set(&mut self, key: &str, value: &str) {
         for e in self.lines.iter_mut() {
-            match e {
-                Line::Entry(k, _) => {
-                    if k == key {
-                        *e = Line::Entry(key.to_string(), value.to_string());
-                    }
+            if let Line::Entry(k, _) = e {
+                if k == key {
+                    *e = Line::Entry(key.to_string(), value.to_string());
                 }
-                _ => {}
             }
         }
 
@@ -107,15 +104,17 @@ impl Config {
             .push(Line::Entry(key.to_string(), value.to_string()));
     }
 
-    /// Returns number of configuration entries present in this `Config`
+    /// Returns number of configuration entries present in this `Config`.
     pub fn len(&self) -> usize {
         self.lines
             .iter()
-            .filter(|&x| match x {
-                Line::Entry(_, _) => true,
-                _ => false,
-            })
+            .filter(|&x| matches!(x, Line::Entry(_, _)))
             .count()
+    }
+
+    /// Returns true if there are no entries defined in this `Config`.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Returns the string representing the configuration in its current state (aka what you'd write to the file usually).
@@ -130,6 +129,12 @@ impl Config {
         }
 
         buff.join("\r\n")
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
