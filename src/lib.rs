@@ -4,25 +4,63 @@
 //! * [`Config::get`] returns the last occurence value, if config specifes the key more than once.
 //! * Whitespaces are not allowed at the start of lines, any line not starting with `[` character is treated as a comment.
 //!
+//! Other notable functionality is that the parser preserves all of the parsed string content, including blank lines and comments.
+//!
 //! # Examples
 //!
 //! ```no_run
 //! # use std::io;
 //! use std::fs::{read_to_string, write};
 //! use dfconfig::Config;
-//! 
+//!
 //! // Parse existing config
 //! let path = r"/path/to/df/data/init/init.txt";
 //! let mut conf = Config::read_str(read_to_string(path).unwrap());
-//! 
+//!
 //! // Read some value
 //! let sound = conf.get("SOUND");
-//! 
+//!
 //! // Modify and save the config
 //! conf.set("VOLUME", "128");
 //! write(path, conf.print())?;
 //! # Ok::<(), io::Error>(())
 //! ```
+
+#[macro_use]
+extern crate lazy_static;
+
+use regex::Regex;
+
+#[derive(Clone, Debug)]
+enum Line {
+    Blank,
+    Comment(String),
+    Entry(Entry),
+}
+
+#[derive(Clone, Debug)]
+struct Entry {
+    key: String,
+    value: String,
+}
+
+impl Entry {
+    pub fn new(key: String, value: String) -> Self {
+        Self { key, value }
+    }
+
+    pub fn get_value(&self) -> &str {
+        &self.value
+    }
+
+    pub fn get_key(&self) -> &str {
+        &self.key
+    }
+
+    pub fn set_value(&mut self, value: String) {
+        self.value = value;
+    }
+}
 
 /// The main struct of this crate. Represents DF config file, while also providing functions to parse and manipulate the data.
 /// See crate doc for example usage.
@@ -30,13 +68,6 @@
 #[derive(Clone, Debug)]
 pub struct Config {
     lines: Vec<Line>,
-}
-
-#[derive(Clone, Debug)]
-enum Line {
-    Blank,
-    Comment(String),
-    Entry(String, String),
 }
 
 impl Config {
@@ -47,6 +78,9 @@ impl Config {
 
     /// Parse the config from a string.
     pub fn read_str<T: AsRef<str>>(input: T) -> Self {
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"^\[([\w\d]+):([\w\d:]+)\]$").unwrap();
+        }
         let mut lines = Vec::<Line>::new();
         for l in input.as_ref().lines() {
             let lt = l.trim_end();
@@ -56,18 +90,14 @@ impl Config {
                 continue;
             }
 
-            if lt.starts_with('[') && lt.contains(':') && lt.ends_with(']') {
-                if let Some((separator_position, _)) = lt.char_indices().find(|&(_, b)| b == ':') {
-                    let (key, value) = lt.split_at(separator_position);
-                    lines.push(Line::Entry(
-                        key[1..].to_string(),
-                        value[1..value.len() - 1].to_string(),
-                    ));
-                    continue;
-                }
-            }
-
-            lines.push(Line::Comment(l.to_owned()));
+            let captures = RE.captures(lt);
+            match captures {
+                Some(c) => lines.push(Line::Entry(Entry::new(
+                    c.get(1).unwrap().as_str().to_owned(),
+                    c.get(2).unwrap().as_str().to_owned(),
+                ))),
+                None => lines.push(Line::Comment(l.to_owned())),
+            };
         }
 
         Self { lines }
@@ -75,36 +105,72 @@ impl Config {
 
     /// Tries to retrieve the value for `key`.
     /// If the key is defined more than once, returns the value of the last occurence.
-    pub fn get(&self, key: &str) -> Option<String> {
+    pub fn get<T: AsRef<str>>(&self, key: T) -> Option<&str> {
         self.lines.iter().rev().find_map(|x| match x {
-            Line::Blank => None,
-            Line::Comment(_) => None,
-            Line::Entry(e_key, value) => {
-                if e_key == key {
-                    Some(value.clone())
+            Line::Entry(entry) => {
+                if entry.get_key() == key.as_ref() {
+                    Some(entry.get_value())
                 } else {
                     None
                 }
             }
+            _ => None,
         })
     }
 
-    /// Sets all the occurences of `key` to [`key`:`value`]
-    pub fn set(&mut self, key: &str, value: &str) {
+    /// Sets all the occurences of `key` to `value`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `key` or `value` is either empty or non-alphanumeric.
+    pub fn set<T: AsRef<str>, U: Into<String>>(&mut self, key: T, value: U) {
+        let key = key.as_ref();
+        let value = value.into();
+        if key.is_empty()
+            || !key.chars().all(|x| x.is_alphanumeric())
+            || value.is_empty()
+            || !value.chars().all(|x| x.is_alphanumeric())
+        {
+            panic!("Both key nad value have to be non-empty alphanumeric strings!")
+        }
+        let mut n = 0;
         for e in self.lines.iter_mut() {
-            match e {
-                Line::Blank => {}
-                Line::Comment(_) => {}
-                Line::Entry(k, _) => {
-                    if k == key {
-                        *e = Line::Entry(key.to_string(), value.to_string());
-                    }
+            if let Line::Entry(entry) = e {
+                if entry.get_key() == key {
+                    entry.set_value(value.clone());
+                    n += 1;
                 }
             }
         }
 
+        if n == 0 {
+            self.lines
+                .push(Line::Entry(Entry::new(key.to_string(), value)));
+        }
+    }
+
+    /// Returns number of configuration entries present in this `Config`.
+    pub fn len(&self) -> usize {
         self.lines
-            .push(Line::Entry(key.to_string(), value.to_string()));
+            .iter()
+            .filter(|&x| matches!(x, Line::Entry(_)))
+            .count()
+    }
+
+    /// Returns true if there are no entries defined in this `Config`.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns an iterator over the `key` strings.
+    pub fn keys_iter(&self) -> impl Iterator<Item = &str> + '_ {
+        self.lines.iter().filter_map(|x| {
+            if let Line::Entry(entry) = x {
+                Some(entry.get_key())
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns the string representing the configuration in its current state (aka what you'd write to the file usually).
@@ -114,7 +180,9 @@ impl Config {
             match l {
                 Line::Blank => buff.push("".to_string()),
                 Line::Comment(x) => buff.push(x.to_string()),
-                Line::Entry(k, v) => buff.push(format!("[{}:{}]", k, v)),
+                Line::Entry(entry) => {
+                    buff.push(format!("[{}:{}]", entry.get_key(), entry.get_value()))
+                }
             }
         }
 
@@ -122,46 +190,119 @@ impl Config {
     }
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
     use std::fs::read_to_string;
+    use std::iter;
 
     use super::*;
 
+    fn random_alphanumeric() -> String {
+        let mut rng = thread_rng();
+        iter::repeat(())
+            .map(|()| rng.sample(Alphanumeric))
+            .map(char::from)
+            .take(thread_rng().gen_range(1..50))
+            .collect()
+    }
+
     #[test]
     fn test_basic_parse() {
-        let c = Config::read_str("[A:B]");
-        assert_eq!(c.get("A").unwrap(), "B");
+        let key = random_alphanumeric();
+        let value: String = random_alphanumeric();
+        let c = Config::read_str(format!("[{}:{}]", key, value));
+        assert_eq!(c.get(key).unwrap(), value);
     }
 
     #[test]
     fn test_multi_value() {
-        let c = Config::read_str("[A:B:C]");
-        assert_eq!(c.get("A").unwrap(), "B:C");
+        let key = random_alphanumeric();
+        let value: String = format!("{}:{}", random_alphanumeric(), random_alphanumeric());
+        let c = Config::read_str(format!("[{}:{}]", key, value));
+        assert_eq!(c.get(key).unwrap(), value);
     }
 
     #[test]
     fn test_basic_set() {
+        let key = random_alphanumeric();
+        let value: String = random_alphanumeric();
         let mut c = Config::new();
-        c.set("A", "B");
-        assert_eq!(c.get("A").unwrap(), "B");
+        c.set(&key, &value);
+        assert_eq!(c.get(key).unwrap(), value);
     }
 
     #[test]
     fn test_read_modify() {
-        let mut c = Config::read_str("[A:B]");
-        assert_eq!(c.get("A").unwrap(), "B");
-        c.set("A", "C");
-        assert_eq!(c.get("A").unwrap(), "C");
-        c.set("D", "F");
-        assert_eq!(c.get("A").unwrap(), "C");
-        assert_eq!(c.get("D").unwrap(), "F");
+        let key_a = random_alphanumeric();
+        let value_b: String = random_alphanumeric();
+        let value_c: String = random_alphanumeric();
+        let key_d = random_alphanumeric();
+        let value_e: String = random_alphanumeric();
+        let mut c = Config::read_str(format!("[{}:{}]", key_a, value_b));
+        assert_eq!(c.get(&key_a).unwrap(), value_b);
+        c.set(&key_a, &value_c);
+        assert_eq!(c.get(&key_a).unwrap(), value_c);
+        c.set(&key_d, &value_e);
+        assert_eq!(c.get(&key_a).unwrap(), value_c);
+        assert_eq!(c.get(&key_d).unwrap(), value_e);
     }
 
     #[test]
     fn test_read_file_smoke() {
-        let s = read_to_string("test.init").unwrap();
+        let s = read_to_string("test-data/test.init").unwrap();
         let c = Config::read_str(s);
         c.print();
+    }
+
+    #[test]
+    fn test_len() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let c: String = random_alphanumeric();
+        let d: String = random_alphanumeric();
+        let e: String = random_alphanumeric();
+        let f: String = random_alphanumeric();
+        let g: String = random_alphanumeric();
+        let mut conf = Config::read_str(format!("[{}:{}]\r\nfoo bar\r\n[{}:{}]", a, b, c, d));
+        assert_eq!(conf.len(), 2);
+        conf.set(&e, &f);
+        assert_eq!(conf.len(), 3);
+        conf.set(&e, &g);
+        assert_eq!(conf.len(), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_on_empty_set() {
+        let mut c = Config::new();
+        c.set("", "");
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_on_non_alphanumeric_set() {
+        let mut c = Config::new();
+        c.set("\r", "\n");
+    }
+
+    #[test]
+    fn test_keys_iter() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let mut conf = Config::new();
+        conf.set(&a, "foo");
+        conf.set(&b, "bar");
+        let mut iter = conf.keys_iter();
+        assert_eq!(Some(a.as_ref()), iter.next());
+        assert_eq!(Some(b.as_ref()), iter.next());
+        assert_eq!(None, iter.next());
     }
 }
