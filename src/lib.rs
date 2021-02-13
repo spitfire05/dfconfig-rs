@@ -162,6 +162,17 @@ impl Config {
         self.len() == 0
     }
 
+    /// Returns an iterator over the `key` strings.
+    pub fn keys_iter(&self) -> impl Iterator<Item = &str> + '_ {
+        self.lines.iter().filter_map(|x| {
+            if let Line::Entry(entry) = x {
+                Some(entry.get_key())
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns the string representing the configuration in its current state (aka what you'd write to the file usually).
     pub fn print(&self) -> String {
         let mut buff = Vec::<String>::with_capacity(self.lines.len());
@@ -280,5 +291,18 @@ mod tests {
     fn panic_on_non_alphanumeric_set() {
         let mut c = Config::new();
         c.set("\r", "\n");
+    }
+
+    #[test]
+    fn test_keys_iter() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let mut conf = Config::new();
+        conf.set(&a, "foo");
+        conf.set(&b, "bar");
+        let mut iter = conf.keys_iter();
+        assert_eq!(Some(a.as_ref()), iter.next());
+        assert_eq!(Some(b.as_ref()), iter.next());
+        assert_eq!(None, iter.next());
     }
 }
