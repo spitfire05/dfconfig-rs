@@ -92,8 +92,11 @@ impl Config {
 
             let captures = RE.captures(lt);
             match captures {
-                Some(c) => lines.push(Line::Entry(Entry::new(c.get(1).unwrap().as_str().to_owned(), c.get(2).unwrap().as_str().to_owned()))),
-                None => lines.push(Line::Comment(l.to_owned()))
+                Some(c) => lines.push(Line::Entry(Entry::new(
+                    c.get(1).unwrap().as_str().to_owned(),
+                    c.get(2).unwrap().as_str().to_owned(),
+                ))),
+                None => lines.push(Line::Comment(l.to_owned())),
             };
         }
 
@@ -119,10 +122,13 @@ impl Config {
     pub fn set<T: AsRef<str>, U: Into<String>>(&mut self, key: T, value: U) {
         let key = key.as_ref();
         let value = value.into();
-        if key.is_empty() || !key.chars().all(|x| x.is_alphanumeric()) ||
-            value.is_empty() || !value.chars().all(|x| x.is_alphanumeric()) {
-                panic!("Both key nad value have to be non-empty alphanumeric strings!")
-            }
+        if key.is_empty()
+            || !key.chars().all(|x| x.is_alphanumeric())
+            || value.is_empty()
+            || !value.chars().all(|x| x.is_alphanumeric())
+        {
+            panic!("Both key nad value have to be non-empty alphanumeric strings!")
+        }
         let mut n = 0;
         for e in self.lines.iter_mut() {
             if let Line::Entry(entry) = e {
@@ -177,20 +183,20 @@ impl Default for Config {
 
 #[cfg(test)]
 mod tests {
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
     use std::fs::read_to_string;
     use std::iter;
-    use rand::{Rng, thread_rng};
-    use rand::distributions::Alphanumeric;
 
     use super::*;
 
     fn random_alphanumeric() -> String {
         let mut rng = thread_rng();
         iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(thread_rng().gen_range(1..50))
-        .collect()
+            .map(|()| rng.sample(Alphanumeric))
+            .map(char::from)
+            .take(thread_rng().gen_range(1..50))
+            .collect()
     }
 
     #[test]
