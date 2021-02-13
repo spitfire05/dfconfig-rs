@@ -1,7 +1,7 @@
 //! dfconfig is a lib for parsing and manipulating Dwarf Fortress' `init.txt` and `d_init.txt` config files (and possibly many others using the same format).
-//! This lib's functioanlity has been specifically tailored to behave simmiliar as DF internal parser, which imples:
+//! This lib's functionality has been specifically tailored to behave similar as DF internal parser, which implies:
 //!
-//! * [`Config::get`] returns the last occurence value, if config specifes the key more than once.
+//! * [`Config::get`] returns the last occurrence value, if config specifies the key more than once.
 //! * Whitespaces are not allowed at the start of lines, any line not starting with `[` character is treated as a comment.
 //!
 //! Other notable functionality is that the parser preserves all of the parsed string content, including blank lines and comments.
@@ -104,7 +104,7 @@ impl Config {
     }
 
     /// Tries to retrieve the value for `key`.
-    /// If the key is defined more than once, returns the value of the last occurence.
+    /// If the key is defined more than once, returns the value of the last occurrence.
     pub fn get<T: AsRef<str>>(&self, key: T) -> Option<&str> {
         self.lines.iter().rev().find_map(|x| match x {
             Line::Entry(entry) => {
@@ -118,7 +118,7 @@ impl Config {
         })
     }
 
-    /// Sets all the occurences of `key` to `value`
+    /// Sets all the occurrences of `key` to `value`
     ///
     /// # Panics
     ///
