@@ -119,6 +119,10 @@ impl Config {
     }
 
     /// Sets all the occurences of `key` to `value`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `key` or `value` is either empty or non-alphanumeric.
     pub fn set<T: AsRef<str>, U: Into<String>>(&mut self, key: T, value: U) {
         let key = key.as_ref();
         let value = value.into();
