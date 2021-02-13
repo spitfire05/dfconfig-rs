@@ -48,9 +48,9 @@ impl Config {
     }
 
     /// Parse the config from a string.
-    pub fn read_str<T: AsRef<str>>(input: T) -> Self {
+    pub fn read_str<T: Into<String>>(input: T) -> Self {
         let mut lines = Vec::<Line>::new();
-        for l in input.as_ref().lines() {
+        for l in input.into().lines() {
             let lt = l.trim_end();
 
             if lt.is_empty() {
@@ -77,10 +77,10 @@ impl Config {
 
     /// Tries to retrieve the value for `key`.
     /// If the key is defined more than once, returns the value of the last occurence.
-    pub fn get(&self, key: &str) -> Option<String> {
+    pub fn get<T: AsRef<str>>(&self, key: T) -> Option<String> {
         self.lines.iter().rev().find_map(|x| match x {
             Line::Entry(e_key, value) => {
-                if e_key == key {
+                if e_key == key.as_ref() {
                     Some(value.clone())
                 } else {
                     None
@@ -91,17 +91,23 @@ impl Config {
     }
 
     /// Sets all the occurences of `key` to [`key`:`value`]
-    pub fn set(&mut self, key: &str, value: &str) {
+    pub fn set<T: AsRef<str>, U: Into<String>>(&mut self, key: T, value: U) {
+        let key = key.as_ref();
+        let value = value.into();
+        let mut n = 0;
         for e in self.lines.iter_mut() {
             if let Line::Entry(k, _) = e {
                 if k == key {
-                    *e = Line::Entry(key.to_string(), value.to_string());
+                    *e = Line::Entry(key.to_string(), value.clone());
+                    n += 1;
                 }
             }
         }
 
-        self.lines
-            .push(Line::Entry(key.to_string(), value.to_string()));
+        if n == 0 {
+            self.lines
+                .push(Line::Entry(key.to_string(), value));
+        }
     }
 
     /// Returns number of configuration entries present in this `Config`.
@@ -186,6 +192,8 @@ mod tests {
         let mut c = Config::read_str("[A:B]\r\nfoo bar\r\n[C:D]");
         assert_eq!(c.len(), 2);
         c.set("E", "F");
+        assert_eq!(c.len(), 3);
+        c.set("E", "G");
         assert_eq!(c.len(), 3);
     }
 }
