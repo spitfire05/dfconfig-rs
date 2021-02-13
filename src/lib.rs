@@ -118,7 +118,7 @@ impl Config {
         })
     }
 
-    /// Sets all the occurences of `key` to [`key`:`value`]
+    /// Sets all the occurences of `key` to `value`
     pub fn set<T: AsRef<str>, U: Into<String>>(&mut self, key: T, value: U) {
         let key = key.as_ref();
         let value = value.into();
