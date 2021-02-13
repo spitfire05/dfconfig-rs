@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_read_file_smoke() {
-        let s = read_to_string("test.init").unwrap();
+        let s = read_to_string("test-data/test.init").unwrap();
         let c = Config::read_str(s);
         c.print();
     }
