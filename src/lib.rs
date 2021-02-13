@@ -4,6 +4,8 @@
 //! * [`Config::get`] returns the last occurence value, if config specifes the key more than once.
 //! * Whitespaces are not allowed at the start of lines, any line not starting with `[` character is treated as a comment.
 //!
+//! Other notable functionality is that the parser preserves all of the parsed string content, including blank lines and comments.
+//!
 //! # Examples
 //!
 //! ```no_run
@@ -77,8 +79,6 @@ impl Config {
     /// If the key is defined more than once, returns the value of the last occurence.
     pub fn get(&self, key: &str) -> Option<String> {
         self.lines.iter().rev().find_map(|x| match x {
-            Line::Blank => None,
-            Line::Comment(_) => None,
             Line::Entry(e_key, value) => {
                 if e_key == key {
                     Some(value.clone())
@@ -86,6 +86,7 @@ impl Config {
                     None
                 }
             }
+            _ => None
         })
     }
 
@@ -93,18 +94,25 @@ impl Config {
     pub fn set(&mut self, key: &str, value: &str) {
         for e in self.lines.iter_mut() {
             match e {
-                Line::Blank => {}
-                Line::Comment(_) => {}
                 Line::Entry(k, _) => {
                     if k == key {
                         *e = Line::Entry(key.to_string(), value.to_string());
                     }
                 }
+                _ => {}
             }
         }
 
         self.lines
             .push(Line::Entry(key.to_string(), value.to_string()));
+    }
+
+    /// Returns number of configuration entries present in this `Config`
+    pub fn len(&self) -> usize {
+        self.lines.iter().filter(|&x| match x {
+            Line::Entry(_, _) => true,
+            _ => false
+        }).count()
     }
 
     /// Returns the string representing the configuration in its current state (aka what you'd write to the file usually).
@@ -163,5 +171,13 @@ mod tests {
         let s = read_to_string("test.init").unwrap();
         let c = Config::read_str(s);
         c.print();
+    }
+
+    #[test]
+    fn test_len() {
+        let mut c = Config::read_str("[A:B]\r\nfoo bar\r\n[C:D]");
+        assert_eq!(c.len(), 2);
+        c.set("E", "F");
+        assert_eq!(c.len(), 3);
     }
 }
