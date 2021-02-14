@@ -259,7 +259,9 @@ mod tests {
     fn test_read_file_smoke() {
         let s = read_to_string("test-data/test.init").unwrap();
         let c = Config::read_str(&s);
-        assert_eq!(c.print(), s);
+        s.lines()
+            .zip(c.print().lines())
+            .for_each(|(a, b)| assert_eq!(a, b));
     }
 
     #[test]
