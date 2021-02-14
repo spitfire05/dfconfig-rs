@@ -131,7 +131,7 @@ impl Config {
             || value.is_empty()
             || !value.chars().all(|x| x.is_alphanumeric())
         {
-            panic!("Both key nad value have to be non-empty alphanumeric strings!")
+            panic!("Both key and value have to be non-empty alphanumeric strings!")
         }
         let mut n = 0;
         for e in self.lines.iter_mut() {
@@ -217,9 +217,11 @@ mod tests {
     #[test]
     fn test_basic_parse() {
         let key = random_alphanumeric();
+        let key2 = random_alphanumeric();
         let value: String = random_alphanumeric();
         let c = Config::read_str(format!("[{}:{}]", key, value));
         assert_eq!(c.get(key).unwrap(), value);
+        assert_eq!(c.get(key2), None);
     }
 
     #[test]
