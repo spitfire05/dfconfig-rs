@@ -161,7 +161,7 @@ impl Config {
                         return Some(i);
                     }
                 }
-                return None;
+                None
             });
             match to_remove {
                 None => break,
