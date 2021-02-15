@@ -339,7 +339,10 @@ mod tests {
         let b: String = random_alphanumeric();
         let c: String = random_alphanumeric();
         let d: String = random_alphanumeric();
-        let mut conf = Config::read_str(format!("[{}:foo]\r\n[{}:bar]\r\n[{}:bar2]\r\n[{}:foobar]\r\n[{}:foobar2]", a, b, b, c, d));
+        let mut conf = Config::read_str(format!(
+            "[{}:foo]\r\n[{}:bar]\r\n[{}:bar2]\r\n[{}:foobar]\r\n[{}:foobar2]",
+            a, b, b, c, d
+        ));
         assert_eq!(conf.len(), 5);
         assert_eq!(conf.remove(&b), 2);
         assert_eq!(conf.len(), 3);
