@@ -29,6 +29,8 @@
 #[macro_use]
 extern crate lazy_static;
 
+use std::collections::HashMap;
+
 use regex::Regex;
 
 #[derive(Clone, Debug)]
@@ -173,6 +175,17 @@ impl Config {
         })
     }
 
+    /// Returns an iterator over (`key`, `value`) tuples.
+    pub fn keys_values_iter(&self) -> impl Iterator<Item = (&str, &str)> + '_ {
+        self.lines.iter().filter_map(|x| {
+            if let Line::Entry(entry) = x {
+                Some((entry.get_key(), entry.get_value()))
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns the string representing the configuration in its current state (aka what you'd write to the file usually).
     pub fn print(&self) -> String {
         let mut buff = Vec::<String>::with_capacity(self.lines.len());
@@ -187,6 +200,16 @@ impl Config {
         }
 
         buff.join("\r\n")
+    }
+}
+
+impl From<Config> for HashMap<String, String> {
+    fn from(conf: Config) -> Self {
+        let mut output = HashMap::new();
+        conf.keys_values_iter().for_each(|(key, value)| {
+            output.insert(key.to_owned(), value.to_owned());
+        });
+        output
     }
 }
 
@@ -308,5 +331,31 @@ mod tests {
         assert_eq!(Some(a.as_ref()), iter.next());
         assert_eq!(Some(b.as_ref()), iter.next());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_keys_values_iter() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let mut conf = Config::new();
+        conf.set(&a, "foo");
+        conf.set(&b, "bar");
+        let mut iter = conf.keys_values_iter();
+        assert_eq!(Some((a.as_ref(), "foo")), iter.next());
+        assert_eq!(Some((b.as_ref(), "bar")), iter.next());
+        assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_hashmap() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let mut conf = Config::new();
+        conf.set(&a, "foo");
+        conf.set(&b, "bar");
+        let hash_map_owned: HashMap<String, String> = conf.into();
+        assert_eq!(hash_map_owned.len(), 2);
+        assert_eq!(hash_map_owned.get(&a).unwrap(), "foo");
+        assert_eq!(hash_map_owned.get(&b).unwrap(), "bar");
     }
 }
