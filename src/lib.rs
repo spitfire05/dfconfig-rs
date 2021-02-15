@@ -149,6 +149,29 @@ impl Config {
         }
     }
 
+    /// Removes all occurrences of `key` from this `Config`. Returns the number of keys removed.
+    pub fn remove<T: AsRef<str>>(&mut self, key: T) -> usize {
+        let mut n: usize = 0;
+        loop {
+            let to_remove = self.lines.iter().enumerate().find_map(|(i, x)| {
+                if let Line::Entry(entry) = x {
+                    if entry.get_key() == key.as_ref() {
+                        return Some(i);
+                    }
+                }
+                return None;
+            });
+            match to_remove {
+                None => break,
+                Some(i) => {
+                    self.lines.remove(i);
+                    n += 1;
+                }
+            };
+        }
+        n
+    }
+
     /// Returns number of configuration entries present in this `Config`.
     pub fn len(&self) -> usize {
         self.lines
@@ -308,5 +331,22 @@ mod tests {
         assert_eq!(Some(a.as_ref()), iter.next());
         assert_eq!(Some(b.as_ref()), iter.next());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_remove() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let c: String = random_alphanumeric();
+        let d: String = random_alphanumeric();
+        let mut conf = Config::read_str(format!("[{}:foo]\r\n[{}:bar]\r\n[{}:bar2]\r\n[{}:foobar]\r\n[{}:foobar2]", a, b, b, c, d));
+        assert_eq!(conf.len(), 5);
+        assert_eq!(conf.remove(&b), 2);
+        assert_eq!(conf.len(), 3);
+        assert_eq!(conf.get(&b), None);
+        assert_eq!(conf.remove(&a), 1);
+        assert_eq!(conf.len(), 2);
+        assert_eq!(conf.get(&a), None);
+        assert_eq!(conf.remove(random_alphanumeric()), 0);
     }
 }
