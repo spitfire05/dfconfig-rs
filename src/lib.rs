@@ -15,7 +15,7 @@
 //!
 //! // Parse existing config
 //! let path = r"/path/to/df/data/init/init.txt";
-//! let mut conf = Config::read_str(read_to_string(path).unwrap());
+//! let mut conf = Config::read_str(read_to_string(path)?);
 //!
 //! // Read some value
 //! let sound = conf.get("SOUND");
