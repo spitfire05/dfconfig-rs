@@ -334,6 +334,19 @@ mod tests {
     }
 
     #[test]
+    fn test_keys_values_iter() {
+        let a: String = random_alphanumeric();
+        let b: String = random_alphanumeric();
+        let mut conf = Config::new();
+        conf.set(&a, "foo");
+        conf.set(&b, "bar");
+        let mut iter = conf.keys_values_iter();
+        assert_eq!(Some((a.as_ref(), "foo")), iter.next());
+        assert_eq!(Some((b.as_ref(), "bar")), iter.next());
+        assert_eq!(None, iter.next());
+    }
+
+    #[test]
     fn test_hashmap() {
         let a: String = random_alphanumeric();
         let b: String = random_alphanumeric();
