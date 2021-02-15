@@ -206,7 +206,7 @@ impl Config {
 impl From<Config> for HashMap<String, String> {
     fn from(conf: Config) -> Self {
         let mut output = HashMap::new();
-        conf.keys_values_iter().for_each(|(key, value)| { 
+        conf.keys_values_iter().for_each(|(key, value)| {
             output.insert(key.to_owned(), value.to_owned());
         });
         output
