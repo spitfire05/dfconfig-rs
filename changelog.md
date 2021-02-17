@@ -1,4 +1,4 @@
-# dfconfig future
+# dfconfig 0.2.0
 * Added `Config::test_keys_values_iter()`
 * Implemented `From<Config> for HashMap<String, String>`
 * Added `Config::remove()`
