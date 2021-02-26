@@ -16,7 +16,7 @@ Also, boredom.
 This library is hosted on *crates.io*, so using it in your project is as simple as:
 ```toml
 [dependencies]
-dfconfig = "0.1"
+dfconfig = "0.2"
 ```
 
 ## Contributing
